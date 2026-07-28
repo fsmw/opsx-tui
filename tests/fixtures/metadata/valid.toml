@@ -1,0 +1,13 @@
+[test-change]
+priority = 3
+tags = ["frontend", "urgent"]
+favorite = true
+blocked_reason = "Waiting for design review"
+notes = "Needs UX sign-off"
+order = 1
+
+[low-priority-change]
+priority = 1
+tags = []
+favorite = false
+order = 2

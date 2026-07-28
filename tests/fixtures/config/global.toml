@@ -1,0 +1,8 @@
+[ui]
+show_archived = true
+compact_cards = false
+mouse_support = true
+
+[execution]
+default_timeout_seconds = 3600
+confirm_mutating_operations = true

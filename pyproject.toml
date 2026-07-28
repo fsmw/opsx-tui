@@ -1,0 +1,76 @@
+[project]
+name = "opsx-tui"
+version = "0.1.0"
+description = "Terminal UI for managing OpenSpec projects"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=1.0,<3.0",
+    "pydantic>=2.0,<3.0",
+    "platformdirs>=4.0,<5.0",
+    "watchfiles>=1.0,<2.0",
+]
+
+[project.scripts]
+opsx-tui = "opsx_tui.__main__:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "hypothesis>=6.100",
+    "pytest-cov>=5.0",
+    "pytest-textual-snapshot>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = ["src/opsx_tui/presentation/"]
+lint.select = ["E", "F", "I", "UP", "B"]
+lint.ignore = []
+
+[tool.mypy]
+mypy_path = ["src"]
+strict_optional = true
+ignore_missing_imports = true
+
+[tool.mypy.overrides]
+module = [
+    "opsx_tui.domain.*",
+    "opsx_tui.application.*",
+]
+strict = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--cov=src/opsx_tui --cov-report=term-missing"
+filterwarnings = [
+    "ignore::DeprecationWarning:textual.*",
+]
+
+[tool.coverage.run]
+source = ["src/opsx_tui"]
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 80
+precision = 2
+
+[tool.coverage.coverage_opsx_tui_domain]
+fail_under = 95
+
+[tool.coverage.coverage_opsx_tui_security]
+fail_under = 90
+
+[tool.coverage.coverage_opsx_tui_adapters]
+fail_under = 85
