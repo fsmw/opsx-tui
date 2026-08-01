@@ -114,8 +114,8 @@ async def test_changes_view_has_search_input(opsx_project: OpenSpecProject) -> N
     app = App()
     async with app.run_test(size=(80, 24)):
         await app.mount(ChangesView(opsx_project))
-        inp = app.query_one("#change-search")
-        assert inp is not None
+        bar = app.query_one("#change-filter-bar")
+        assert bar is not None
 
 
 async def test_run_view_shows_title(opsx_project: OpenSpecProject) -> None:

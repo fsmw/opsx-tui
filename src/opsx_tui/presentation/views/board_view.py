@@ -8,11 +8,13 @@ from textual.binding import Binding
 from textual.containers import HorizontalScroll, Vertical
 from textual.widget import Widget
 
+from opsx_tui.domain.filtering import ChangeFilter, filter_changes
 from opsx_tui.domain.open_spec_project import OpenSpecProject
 from opsx_tui.domain.workspace import Change
 from opsx_tui.presentation.views.kanban.board_detail_modal import BoardDetailModal
 from opsx_tui.presentation.views.kanban.kanban_card import KanbanCard
 from opsx_tui.presentation.views.kanban.kanban_column import KanbanColumn
+from opsx_tui.presentation.widgets.filter_bar import FilterBar, FiltersChanged
 
 
 class _ProjectSource(Protocol):
@@ -39,6 +41,7 @@ _STATE_TITLES: dict[str, str] = {
     "ready-to-archive": "Ready to Archive",
     "blocked": "Blocked",
     "unknown": "Unknown",
+    "archived": "Archived",
 }
 
 
@@ -63,9 +66,13 @@ class BoardView(Widget):
         self.opsx_project: OpenSpecProject = opsx_project
         self._columns: list[KanbanColumn] = []
         self._focused_column: int = 0
+        self._active_filter: ChangeFilter = ChangeFilter()
+        self._reloading: bool = False
+        self._reload_pending: bool = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="board-layout"):
+            yield FilterBar(id="board-filter-bar")
             with HorizontalScroll(id="kanban-board"):
                 for state in _ACTIVE_STATES:
                     yield KanbanColumn(
@@ -77,32 +84,71 @@ class BoardView(Widget):
     async def on_mount(self) -> None:
         await self.reload()
 
+    def on_filters_changed(self, event: FiltersChanged) -> None:
+        self._active_filter = event.filt
+        self.call_after_refresh(self.reload)
+
     async def reload(self) -> None:
         """Rebuild the board from the current app project (reactive refresh)."""
+        if self._reloading:
+            self._reload_pending = True
+            return
+        self._reloading = True
+        try:
+            await self._do_reload()
+        finally:
+            self._reloading = False
+            if self._reload_pending:
+                self._reload_pending = False
+                await self.reload()
+
+    async def _do_reload(self) -> None:
         project = cast(_ProjectSource, self.app).opsx_project
         if project is None:
             return
+        filt = self._active_filter
+        active = filter_changes(project.workspace.active_changes, filt)
+        archived = filter_changes(project.workspace.archived_changes, filt)
+
         groups: dict[str, list[Change]] = {}
-        for change in project.workspace.active_changes:
+        for change in active:
             groups.setdefault(change.state.value, []).append(change)
 
         self._columns = list(self.query(KanbanColumn))
         for column in self._columns:
             state = column.state
+            if state == "archived":
+                continue
             changes = groups.get(state, [])
             changes.sort(key=self._sort_key)
             cards = [KanbanCard(c, id=f"card-{state}-{c.name}") for c in changes]
             await column.rebuild(cards)
 
-        unknown_changes = groups.get("unknown", [])
-        await self._sync_unknown_column(unknown_changes)
+        self._apply_state_column_visibility(groups)
+        await self._sync_unknown_column(groups.get("unknown", []))
+        await self._sync_archived_column(list(archived))
+
+    def _apply_state_column_visibility(
+        self, groups: dict[str, list[Change]]
+    ) -> None:
+        """Hide columns excluded by a state filter; always show the rest."""
+        filt = self._active_filter
+        for column in self._columns:
+            if column.state == "archived":
+                continue
+            if filt.states:
+                column.display = column.state in filt.states
+            else:
+                column.display = True
 
     async def _sync_unknown_column(self, changes: list[Change]) -> None:
         """Show an Unknown column only when unknown changes exist (§23.2)."""
+        filt = self._active_filter
+        if filt.states and "unknown" not in filt.states:
+            changes = []
         board = self.query_one("#kanban-board")
-        existing = board.query(KanbanColumn)
         current_unknown: KanbanColumn | None = None
-        for column in existing:
+        for column in self.query(KanbanColumn):
             if column.state == "unknown":
                 current_unknown = column
                 break
@@ -117,8 +163,33 @@ class BoardView(Widget):
                 KanbanCard(c, id=f"card-unknown-{c.name}") for c in changes
             ]
             await current_unknown.rebuild(cards)
+            current_unknown.display = True
         elif current_unknown is not None:
             await current_unknown.remove()
+
+    async def _sync_archived_column(self, archived: list[Change]) -> None:
+        """Show an Archived column when the archive filter is on (§23.1)."""
+        board = self.query_one("#kanban-board")
+        current_archived: KanbanColumn | None = None
+        for column in self.query(KanbanColumn):
+            if column.state == "archived":
+                current_archived = column
+                break
+        if archived:
+            if current_archived is None:
+                current_archived = KanbanColumn(
+                    "archived", _STATE_TITLES["archived"], id="column-archived"
+                )
+                await board.mount(current_archived)
+            archived_sorted = sorted(archived, key=self._sort_key)
+            cards = [
+                KanbanCard(c, id=f"card-archived-{c.name}")
+                for c in archived_sorted
+            ]
+            await current_archived.rebuild(cards)
+            current_archived.display = True
+        elif current_archived is not None:
+            await current_archived.remove()
 
     def _sort_key(self, change: Change) -> tuple[tuple[int, ...], str]:
         meta = change.metadata

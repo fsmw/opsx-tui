@@ -7,6 +7,7 @@ from textual.app import App
 from opsx_tui.domain.change_parser import (
     ParsedTaskList,
 )
+from opsx_tui.domain.filtering import ChangeFilter
 from opsx_tui.domain.metadata import ChangeMetadata, Priority
 from opsx_tui.domain.open_spec_project import OpenSpecProject
 from opsx_tui.domain.project import (
@@ -25,6 +26,7 @@ from opsx_tui.domain.workspace import (
 from opsx_tui.presentation.views.board_view import BoardView
 from opsx_tui.presentation.views.kanban.kanban_card import KanbanCard
 from opsx_tui.presentation.views.kanban.kanban_column import KanbanColumn
+from opsx_tui.presentation.widgets.filter_bar import FiltersChanged
 
 
 def _artifact(kind: ArtifactKind, exists: bool = True) -> ArtifactInfo:
@@ -43,13 +45,14 @@ def _make_change(
     tasks: ParsedTaskList | None = None,
     artifacts: tuple[ArtifactInfo, ...] = (),
     diagnostics: tuple[Diagnostic, ...] = (),
+    is_archived: bool = False,
 ) -> Change:
     return Change(
         name=name,
         change_dir=Path(name),
         absolute_change_dir=Path(f"/test/{name}"),
         artifacts=artifacts,
-        is_archived=False,
+        is_archived=is_archived,
         state=state,
         parsed_tasks=tasks,
         metadata=metadata,
@@ -67,14 +70,17 @@ def _tasks(completed: int, total: int) -> ParsedTaskList:
     )
 
 
-def _project(active: tuple[Change, ...]) -> OpenSpecProject:
+def _project(
+    active: tuple[Change, ...],
+    archived: tuple[Change, ...] = (),
+) -> OpenSpecProject:
     snapshot = WorkspaceSnapshot(
         root=Path("/test"),
         openspec_root=Path("/test/openspec"),
         config_yaml=True,
         specs=(),
         active_changes=active,
-        archived_changes=(),
+        archived_changes=archived,
         diagnostics=(),
         fingerprint="fp-test",
     )
@@ -445,3 +451,124 @@ async def test_board_on_narrow_terminal_truncates() -> None:
         view = await _mount_board(app, project)
         card = view.query(KanbanCard).first()
         assert card
+
+
+async def test_state_filter_hides_excluded_columns() -> None:
+    project = _project(
+        (
+            _make_change("draft-change", state=ChangeStatus.DRAFT),
+            _make_change("ready-change", state=ChangeStatus.READY),
+        )
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        view.on_filters_changed(FiltersChanged(ChangeFilter(states={ChangeStatus.READY})))
+        await view.reload()
+        draft = view.query_one("#column-draft", KanbanColumn)
+        ready = view.query_one("#column-ready", KanbanColumn)
+        assert not draft.display
+        assert ready.display
+        assert _card_names(ready) == ["ready-change"]
+
+
+async def test_clearing_state_filter_restores_columns() -> None:
+    project = _project(
+        (
+            _make_change("draft-change", state=ChangeStatus.DRAFT),
+            _make_change("ready-change", state=ChangeStatus.READY),
+        )
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        view.on_filters_changed(FiltersChanged(ChangeFilter(states={ChangeStatus.READY})))
+        await view.reload()
+        view.on_filters_changed(FiltersChanged(ChangeFilter()))
+        await view.reload()
+        assert view.query_one("#column-draft", KanbanColumn).display
+        assert view.query_one("#column-ready", KanbanColumn).display
+
+
+async def test_text_filter_hides_cards_but_keeps_columns() -> None:
+    project = _project(
+        (
+            _make_change("fix-bug", state=ChangeStatus.READY),
+            _make_change("add-feature", state=ChangeStatus.READY),
+        )
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        view.on_filters_changed(FiltersChanged(ChangeFilter(text="bug")))
+        await view.reload()
+        ready = view.query_one("#column-ready", KanbanColumn)
+        assert ready.display
+        assert _card_names(ready) == ["fix-bug"]
+
+
+async def test_tag_filter_keeps_only_matching_cards() -> None:
+    project = _project(
+        (
+            _make_change(
+                "ui-change",
+                state=ChangeStatus.READY,
+                metadata=ChangeMetadata(tags=("ui",)),
+            ),
+            _make_change(
+                "core-change",
+                state=ChangeStatus.READY,
+                metadata=ChangeMetadata(tags=("core",)),
+            ),
+        )
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        view.on_filters_changed(FiltersChanged(ChangeFilter(tags=("ui",))))
+        await view.reload()
+        assert _card_names(view.query_one("#column-ready", KanbanColumn)) == [
+            "ui-change"
+        ]
+
+
+async def test_include_archived_renders_archived_column() -> None:
+    project = _project(
+        (_make_change("active-change", state=ChangeStatus.READY),),
+        archived=(
+            _make_change(
+                "old-change",
+                state=ChangeStatus.APPLYING,
+                is_archived=True,
+            ),
+        ),
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        assert not view.query("#column-archived")
+        view.on_filters_changed(FiltersChanged(ChangeFilter(include_archived=True)))
+        await view.reload()
+        archived = view.query_one("#column-archived", KanbanColumn)
+        assert _card_names(archived) == ["old-change"]
+
+
+async def test_filtering_never_changes_change_state() -> None:
+    project = _project(
+        (
+            _make_change("draft-change", state=ChangeStatus.DRAFT),
+            _make_change("ready-change", state=ChangeStatus.READY),
+        )
+    )
+    app = App()
+    async with app.run_test(size=(120, 40)):
+        view = await _mount_board(app, project)
+        view.on_filters_changed(FiltersChanged(ChangeFilter(states={ChangeStatus.READY})))
+        await view.reload()
+        view.on_filters_changed(FiltersChanged(ChangeFilter(text="draft")))
+        await view.reload()
+        changes = {c.name: c.state for c in app.opsx_project.workspace.active_changes}
+        assert changes == {
+            "draft-change": ChangeStatus.DRAFT,
+            "ready-change": ChangeStatus.READY,
+        }

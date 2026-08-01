@@ -1,3 +1,4 @@
+from opsx_tui.domain.filtering import ChangeFilter, filter_changes
 from opsx_tui.domain.lifecycle import (
     BlockingCondition,
     LifecycleAssessment,
@@ -11,6 +12,7 @@ from opsx_tui.domain.status import ChangeStatus
 
 __all__ = [
     "BlockingCondition",
+    "ChangeFilter",
     "ChangeStatus",
     "CLI_VERSION_MINIMUM",
     "LifecycleAssessment",
@@ -19,4 +21,5 @@ __all__ = [
     "RequiredArtifact",
     "VerificationRecord",
     "assess_lifecycle",
+    "filter_changes",
 ]

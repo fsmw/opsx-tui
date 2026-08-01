@@ -258,22 +258,57 @@ async def test_list_mounted(project_with_changes: OpenSpecProject) -> None:
         view = ChangesView(project_with_changes)
         await app.mount(view)
         lv = view.query_one("#change-list")
-        assert len(lv.children) >= 3
+        assert len(lv.children) >= 2
 
 
 async def test_search_filters(project_with_changes: OpenSpecProject) -> None:
-    from textual.widgets import Input
+    from opsx_tui.domain.filtering import ChangeFilter
+    from opsx_tui.presentation.widgets.filter_bar import FiltersChanged
 
     app = App()
     async with app.run_test(size=(80, 24)):
         view = ChangesView(project_with_changes)
         await app.mount(view)
-        view.on_input_changed(Input.Changed(input=view, value="bug"))
+        await view.on_filters_changed(FiltersChanged(ChangeFilter(text="bug")))
         lv = view.query_one("#change-list")
         assert any(
             "fix-bug" in str(c.query_one(Static).renderable)
             for c in lv.children
         )
+
+
+async def test_archived_section_hidden_by_default(
+    project_with_changes: OpenSpecProject,
+) -> None:
+    from opsx_tui.domain.filtering import ChangeFilter
+    from opsx_tui.presentation.widgets.filter_bar import FiltersChanged
+
+    app = App()
+    async with app.run_test(size=(80, 24)):
+        view = ChangesView(project_with_changes)
+        await app.mount(view)
+        await view.on_filters_changed(FiltersChanged(ChangeFilter()))
+        lv = view.query_one("#change-list")
+        texts = [str(c.query_one(Static).renderable) for c in lv.children]
+        assert not any("Archived" in t for t in texts)
+
+
+async def test_archived_section_shown_when_included(
+    project_with_changes: OpenSpecProject,
+) -> None:
+    from opsx_tui.domain.filtering import ChangeFilter
+    from opsx_tui.presentation.widgets.filter_bar import FiltersChanged
+
+    app = App()
+    async with app.run_test(size=(80, 24)):
+        view = ChangesView(project_with_changes)
+        await app.mount(view)
+        await view.on_filters_changed(
+            FiltersChanged(ChangeFilter(include_archived=True))
+        )
+        lv = view.query_one("#change-list")
+        texts = [str(c.query_one(Static).renderable) for c in lv.children]
+        assert any("Archived" in t for t in texts)
 
 
 async def test_select_change_shows_detail(
