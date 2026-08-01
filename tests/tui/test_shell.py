@@ -86,14 +86,16 @@ async def test_header_reactive_active_view() -> None:
 # --- 8.4: View widgets ---
 
 
-async def test_board_view_shows_title(opsx_project: OpenSpecProject) -> None:
+async def test_board_view_shows_columns(opsx_project: OpenSpecProject) -> None:
     from opsx_tui.presentation.views.board_view import BoardView
+    from opsx_tui.presentation.views.kanban.kanban_column import KanbanColumn
 
     app = App()
-    async with app.run_test(size=(40, 10)):
+    app.opsx_project = opsx_project  # type: ignore[attr-defined]
+    async with app.run_test(size=(120, 40)):
         await app.mount(BoardView(opsx_project))
-        label = app.query_one("#view-title")
-        assert "Board" in str(label.renderable)
+        columns = app.query(KanbanColumn)
+        assert len(columns) >= 7
 
 
 async def test_specs_view_shows_title(opsx_project: OpenSpecProject) -> None:

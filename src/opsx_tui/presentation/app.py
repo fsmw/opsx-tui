@@ -14,6 +14,7 @@ from opsx_tui.domain.workspace import WorkspaceSnapshot
 from opsx_tui.infrastructure.recent_projects_discoverer import write_recent_project
 from opsx_tui.infrastructure.validation import validate_project
 from opsx_tui.presentation.shell_screen import ShellScreen
+from opsx_tui.presentation.views.board_view import BoardView
 
 
 class OpsxTuiApp(App):
@@ -96,6 +97,8 @@ class OpsxTuiApp(App):
             if self._container is not None:
                 asyncio.create_task(self._run_cli_detection(self._container))
         self.refresh()
+        for view in self.query(BoardView):
+            asyncio.create_task(view.reload())
 
     async def on_unmount(self) -> None:
         if self._watcher is not None:
