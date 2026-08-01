@@ -35,7 +35,7 @@ class OpsxTuiApp(App):
         self.cli_info: OpenSpecCLIInfo | None = None
         self._watcher: WorkspaceWatcherService | None = None
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self._container = self._container or Container()
         container = self._container
         project: Project | None = None
@@ -58,13 +58,15 @@ class OpsxTuiApp(App):
                 return
 
         write_recent_project(project.root)
-        self._load_workspace(container, project)
+        await self._load_workspace(container, project)
         asyncio.create_task(self._run_cli_detection(container))
 
-    def _load_workspace(self, container: Container, project: Project) -> None:
+    async def _load_workspace(self, container: Container, project: Project) -> None:
         try:
             ws_service = container.create_workspace_service()
-            snapshot = ws_service.read_snapshot(project.openspec_root)
+            snapshot = await asyncio.to_thread(
+                ws_service.read_snapshot, project.openspec_root
+            )
             store = container.create_metadata_store(project.openspec_root)
             snapshot = container.enrich_snapshot(snapshot, store)
         except Exception:

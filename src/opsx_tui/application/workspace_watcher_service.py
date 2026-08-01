@@ -75,7 +75,9 @@ class WorkspaceWatcherService:
         if root is None:
             return
         try:
-            snapshot = self._workspace_service.read_snapshot(root)
+            snapshot = await asyncio.to_thread(
+                self._workspace_service.read_snapshot, root
+            )
             if (
                 self._current_fingerprint is not None
                 and snapshot.fingerprint == self._current_fingerprint
