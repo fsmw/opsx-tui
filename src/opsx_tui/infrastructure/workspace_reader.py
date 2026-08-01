@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from opsx_tui.application.lifecycle_service import LifecycleService
 from opsx_tui.domain.change_parser import (
     ParsedDesign,
     ParsedProposal,
     ParsedTaskList,
-    infer_change_state,
     parse_design_markdown,
     parse_proposal_markdown,
     parse_task_markdown,
@@ -16,6 +16,7 @@ from opsx_tui.domain.errors import WorkspaceReadError
 from opsx_tui.domain.ports import WorkspaceReader
 from opsx_tui.domain.project import Diagnostic, DiagnosticLevel
 from opsx_tui.domain.spec_parser import parse_spec_markdown
+from opsx_tui.domain.status import ChangeStatus
 from opsx_tui.domain.workspace import (
     ArtifactInfo,
     ArtifactKind,
@@ -32,6 +33,9 @@ _ARTIFACT_KINDS: dict[str, ArtifactKind] = {
 
 
 class FilesystemWorkspaceReader(WorkspaceReader):
+    def __init__(self, lifecycle_service: LifecycleService) -> None:
+        self._lifecycle_service = lifecycle_service
+
     def read_workspace(self, openspec_root: Path) -> WorkspaceSnapshot:
         if not openspec_root.exists():
             raise WorkspaceReadError(openspec_root, "path does not exist")
@@ -144,29 +148,21 @@ class FilesystemWorkspaceReader(WorkspaceReader):
             parsed_proposal, parsed_design, parsed_tasks, artifact_diags = (
                 self._parse_artifact_contents(entry, artifacts)
             )
-            kinds = {
-                "proposal": ArtifactKind.PROPOSAL,
-                "design": ArtifactKind.DESIGN,
-                "tasks": ArtifactKind.TASKS,
-                "specs": ArtifactKind.SPECS,
-            }
-            has_artifacts = {k: any(a.kind == v and a.exists
-                                    for a in artifacts)
-                             for k, v in kinds.items()}
-            state = infer_change_state(archived, has_artifacts, artifact_diags)
-            result.append(Change(
+            change = Change(
                 name=entry.name,
                 change_dir=entry,
                 absolute_change_dir=entry.resolve(),
                 artifacts=artifacts,
                 is_archived=archived,
                 delta_specs=delta_specs,
-                state=state,
+                state=ChangeStatus.UNKNOWN,
                 parsed_proposal=parsed_proposal,
                 parsed_design=parsed_design,
                 parsed_tasks=parsed_tasks,
                 artifact_diagnostics=tuple(artifact_diags),
-            ))
+            )
+            assessment = self._lifecycle_service.assess(change)
+            result.append(change.model_copy(update={"state": assessment.status}))
         return tuple(result)
 
     def _scan_delta_specs(

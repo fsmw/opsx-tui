@@ -4,9 +4,9 @@ from pathlib import Path
 
 from opsx_tui.application.change_metadata_service import merge_metadata
 from opsx_tui.domain.metadata import ChangeMetadata, Priority
+from opsx_tui.domain.status import ChangeStatus
 from opsx_tui.domain.workspace import (
     Change,
-    ChangeState,
     WorkspaceSnapshot,
 )
 
@@ -18,7 +18,7 @@ def _make_change(name: str, archived: bool = False) -> Change:
         absolute_change_dir=Path("/tmp"),
         artifacts=(),
         is_archived=archived,
-        state=ChangeState.ACTIVE if not archived else ChangeState.ARCHIVED,
+        state=ChangeStatus.APPLYING if not archived else ChangeStatus.ARCHIVED,
     )
 
 

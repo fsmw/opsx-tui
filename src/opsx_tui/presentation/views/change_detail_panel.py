@@ -76,7 +76,9 @@ class ChangeDetailPanel(Widget):
         if missing:
             lines.append(f"**Artifacts missing:** {', '.join(missing)}")
         if change.parsed_tasks is not None:
-            bar = _progress_bar(change.parsed_tasks.completed, change.parsed_tasks.total)
+            bar = _progress_bar(
+                change.parsed_tasks.completed, change.parsed_tasks.total
+            )
             lines.append(f"**Progress:** {bar}")
         if change.metadata:
             m: ChangeMetadata = change.metadata

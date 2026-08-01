@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 from opsx_tui.domain.metadata import ChangeMetadata, Priority
-from opsx_tui.domain.workspace import Change, ChangeState
+from opsx_tui.domain.status import ChangeStatus
+from opsx_tui.domain.workspace import Change
 
 
 class TestPriorityEnum:
@@ -82,7 +83,7 @@ class TestChangeModelBackwardCompat:
             absolute_change_dir=Path("/changes/test"),
             artifacts=(),
             is_archived=False,
-            state=ChangeState.UNKNOWN,
+            state=ChangeStatus.UNKNOWN,
         )
         assert c.metadata is None
 
@@ -94,7 +95,7 @@ class TestChangeModelBackwardCompat:
             absolute_change_dir=Path("/changes/test"),
             artifacts=(),
             is_archived=False,
-            state=ChangeState.UNKNOWN,
+            state=ChangeStatus.UNKNOWN,
             metadata=meta,
         )
         assert c.metadata is not None

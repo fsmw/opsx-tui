@@ -14,10 +14,10 @@ from opsx_tui.domain.project import (
     Project,
 )
 from opsx_tui.domain.spec_parser import ParsedSpec, SpecRequirement, SpecScenario
+from opsx_tui.domain.status import ChangeStatus
 from opsx_tui.domain.workspace import (
     CanonicalSpec,
     Change,
-    ChangeState,
     WorkspaceSnapshot,
 )
 from opsx_tui.presentation.views.board_view import BoardView
@@ -117,7 +117,7 @@ def project_with_specs() -> OpenSpecProject:
         artifacts=(),
         is_archived=False,
         delta_specs=(delta_spec,),
-        state=ChangeState.ACTIVE,
+        state=ChangeStatus.APPLYING,
     )
 
     snapshot = WorkspaceSnapshot(

@@ -7,7 +7,6 @@ from textual.app import App
 from textual.widgets import Static
 
 from opsx_tui.domain.change_parser import (
-    ChangeState,
     ParsedDesign,
     ParsedDesignDecision,
     ParsedProposal,
@@ -21,6 +20,7 @@ from opsx_tui.domain.project import (
     DiscoverySource,
     Project,
 )
+from opsx_tui.domain.status import ChangeStatus
 from opsx_tui.domain.workspace import (
     Change,
     WorkspaceSnapshot,
@@ -31,7 +31,7 @@ from opsx_tui.presentation.views.changes_view import ChangesView, _format_change
 def _make_change(
     name: str,
     is_archived: bool,
-    state: ChangeState = ChangeState.ACTIVE,
+    state: ChangeStatus = ChangeStatus.APPLYING,
 ) -> Change:
     return Change(
         name=name,
@@ -46,7 +46,7 @@ def _make_change(
 def _make_detailed_change(
     name: str,
     is_archived: bool,
-    state: ChangeState = ChangeState.ACTIVE,
+    state: ChangeStatus = ChangeStatus.APPLYING,
 ) -> Change:
     proposal = ParsedProposal(
         sections={"Why": "Need this feature", "What Changes": "Add the feature"},
@@ -103,7 +103,7 @@ def project_with_changes() -> OpenSpecProject:
     )
     archived = (
         _make_change("old-change", is_archived=True),
-        _make_detailed_change("legacy", is_archived=True, state=ChangeState.ARCHIVED),
+        _make_detailed_change("legacy", is_archived=True, state=ChangeStatus.ARCHIVED),
     )
     snapshot = WorkspaceSnapshot(
         root=Path("/test"),
@@ -130,9 +130,9 @@ def test_changes_view_receives_project(project_with_changes: OpenSpecProject) ->
 
 
 def test_format_change_item_shows_state() -> None:
-    change = _make_change("test-change", is_archived=False, state=ChangeState.ACTIVE)
+    change = _make_change("test-change", is_archived=False, state=ChangeStatus.APPLYING)
     text = _format_change_item(change)
-    assert "active" in text
+    assert "APY" in text
     assert "test-change" in text
 
 
@@ -175,7 +175,7 @@ def test_format_change_item_shows_tags() -> None:
 def test_overview_content_shows_name_and_state() -> None:
     from opsx_tui.presentation.views.change_detail_panel import ChangeDetailPanel
 
-    change = _make_change("simple", is_archived=True, state=ChangeState.ARCHIVED)
+    change = _make_change("simple", is_archived=True, state=ChangeStatus.ARCHIVED)
     text = ChangeDetailPanel._overview_content(change)
     assert "simple" in text
     assert "archived" in text
@@ -364,7 +364,7 @@ async def test_detail_parsed_content(project_with_changes: OpenSpecProject) -> N
                 break
         overview = view.query_one("#overview-content")
         overview_text = str(overview.renderable)
-        assert "active" in overview_text
+        assert "applying" in overview_text
         assert "add-feature" in overview_text
         proposal = view.query_one("#proposal-content")
         proposal_text = str(proposal.renderable)

@@ -63,7 +63,13 @@ class TestProcessOpenSpecCLIDetector:
 
     async def test_version_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
         async def _fake_create_subprocess_exec(*args: object, **kw: object) -> object:
-            await asyncio.sleep(999)
+            class FakeProcess:
+                returncode = 0
+
+                async def communicate(self) -> tuple[bytes, bytes]:
+                    await asyncio.sleep(999)
+
+            return FakeProcess()
 
         monkeypatch.setattr(
             "opsx_tui.infrastructure.cli_detector.shutil.which",

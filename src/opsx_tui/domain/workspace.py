@@ -6,7 +6,6 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from opsx_tui.domain.change_parser import (
-    ChangeState,
     ParsedDesign,
     ParsedProposal,
     ParsedTaskList,
@@ -14,6 +13,7 @@ from opsx_tui.domain.change_parser import (
 from opsx_tui.domain.metadata import ChangeMetadata
 from opsx_tui.domain.project import Diagnostic
 from opsx_tui.domain.spec_parser import ParsedSpec
+from opsx_tui.domain.status import ChangeStatus
 
 
 class ArtifactKind(StrEnum):
@@ -47,7 +47,7 @@ class Change(BaseModel, frozen=True):
     artifacts: tuple[ArtifactInfo, ...]
     is_archived: bool
     delta_specs: tuple[CanonicalSpec, ...] = ()
-    state: ChangeState = ChangeState.UNKNOWN
+    state: ChangeStatus = ChangeStatus.UNKNOWN
     parsed_proposal: ParsedProposal | None = None
     parsed_design: ParsedDesign | None = None
     parsed_tasks: ParsedTaskList | None = None

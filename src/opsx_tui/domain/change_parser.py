@@ -1,20 +1,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from enum import StrEnum
 
 from pydantic import BaseModel
 
 from opsx_tui.domain.project import Diagnostic, DiagnosticLevel
-
-
-class ChangeState(StrEnum):
-    UNKNOWN = "unknown"
-    INCOMPLETE = "incomplete"
-    PARTIALLY_VALID = "partially_valid"
-    ACTIVE = "active"
-    ARCHIVED = "archived"
 
 
 class ParsedProposal(BaseModel, frozen=True):
@@ -318,19 +308,4 @@ def parse_task_markdown(markdown: str) -> ParsedTaskList:
     )
 
 
-def infer_change_state(
-    is_archived: bool,
-    has_artifacts: dict[str, bool],
-    artifact_diagnostics: Sequence[Diagnostic],
-) -> ChangeState:
-    if is_archived:
-        return ChangeState.ARCHIVED
-    if not any(has_artifacts.values()):
-        return ChangeState.UNKNOWN
-    if not all(has_artifacts.get(k, False) for k in ("proposal", "design", "tasks")):
-        return ChangeState.INCOMPLETE
-    severe = (DiagnosticLevel.WARNING, DiagnosticLevel.ERROR)
-    content_diagnostics = [d for d in artifact_diagnostics if d.level in severe]
-    if content_diagnostics:
-        return ChangeState.PARTIALLY_VALID
-    return ChangeState.ACTIVE
+

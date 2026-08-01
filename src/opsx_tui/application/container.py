@@ -5,6 +5,7 @@ from pathlib import Path
 from opsx_tui.application.change_metadata_service import merge_metadata
 from opsx_tui.application.change_parser_service import ChangeParserService
 from opsx_tui.application.config_service import ConfigService
+from opsx_tui.application.lifecycle_service import LifecycleService
 from opsx_tui.application.project_discovery_service import ProjectDiscoveryService
 from opsx_tui.application.spec_parser_service import SpecParserService
 from opsx_tui.application.workspace_service import WorkspaceService
@@ -58,10 +59,15 @@ class Container:
         return SpecParserService(logger=self.create_logger())
 
     def create_workspace_reader(self) -> WorkspaceReader:
-        return FilesystemWorkspaceReader()
+        return FilesystemWorkspaceReader(
+            lifecycle_service=self.create_lifecycle_service(),
+        )
 
     def create_change_parser_service(self) -> ChangeParserService:
         return ChangeParserService()
+
+    def create_lifecycle_service(self) -> LifecycleService:
+        return LifecycleService(logger=self.create_logger())
 
     def create_workspace_service(self) -> WorkspaceService:
         return WorkspaceService(reader=self.create_workspace_reader())

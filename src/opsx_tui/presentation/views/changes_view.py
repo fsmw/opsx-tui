@@ -14,9 +14,21 @@ from opsx_tui.domain.open_spec_project import OpenSpecProject
 from opsx_tui.domain.workspace import Change
 from opsx_tui.presentation.views.change_detail_panel import ChangeDetailPanel
 
+_STATE_ABBREV: dict[str, str] = {
+    "draft": "DFT",
+    "planning": "PLN",
+    "ready": "RDY",
+    "applying": "APY",
+    "verification": "VER",
+    "ready-to-archive": "RTA",
+    "blocked": "BLK",
+    "archived": "ARC",
+    "unknown": "UNK",
+}
+
 
 def _format_change_item(change: Change) -> str:
-    state_str = change.state.value
+    state_str = _STATE_ABBREV.get(change.state.value, change.state.value.upper()[:3])
     prog = ""
     if change.parsed_tasks is not None:
         prog = f" {change.parsed_tasks.completed}/{change.parsed_tasks.total}"

@@ -4,14 +4,20 @@ from pathlib import Path
 
 import pytest
 
-from opsx_tui.domain.change_parser import ChangeState
+from opsx_tui.application.lifecycle_service import LifecycleService
+from opsx_tui.domain.status import ChangeStatus
 from opsx_tui.domain.workspace import Change
 from opsx_tui.infrastructure.workspace_reader import FilesystemWorkspaceReader
 
 
 @pytest.fixture
-def reader() -> FilesystemWorkspaceReader:
-    return FilesystemWorkspaceReader()
+def lifecycle_service() -> LifecycleService:
+    return LifecycleService()
+
+
+@pytest.fixture
+def reader(lifecycle_service: LifecycleService) -> FilesystemWorkspaceReader:
+    return FilesystemWorkspaceReader(lifecycle_service)
 
 
 class TestChangeBackwardCompat:
@@ -23,7 +29,7 @@ class TestChangeBackwardCompat:
             artifacts=(),
             is_archived=False,
         )
-        assert change.state == ChangeState.UNKNOWN
+        assert change.state == ChangeStatus.UNKNOWN
         assert change.parsed_proposal is None
         assert change.parsed_design is None
         assert change.parsed_tasks is None
@@ -36,16 +42,16 @@ class TestChangeBackwardCompat:
             absolute_change_dir=Path("/tmp/new").resolve(),
             artifacts=(),
             is_archived=False,
-            state=ChangeState.ACTIVE,
+            state=ChangeStatus.PLANNING,
         )
-        assert change.state == ChangeState.ACTIVE
+        assert change.state == ChangeStatus.PLANNING
 
 
 class TestWorkspaceReaderIntegration:
     def test_valid_change_parsed(self, reader: FilesystemWorkspaceReader) -> None:
         root = Path("tests/fixtures/workspace/minimal/openspec").resolve()
         snap = reader.read_workspace(root)
-        active = [c for c in snap.active_changes if c.state != ChangeState.UNKNOWN]
+        active = [c for c in snap.active_changes if c.state != ChangeStatus.UNKNOWN]
         assert len(active) >= 1
 
     def test_valid_change_has_parsed_content(
@@ -68,7 +74,7 @@ class TestWorkspaceReaderIntegration:
         snap = reader.read_workspace(root)
         for c in snap.active_changes:
             if c.name == "active-change":
-                assert c.state == ChangeState.ACTIVE
+                assert c.state == ChangeStatus.READY
                 return
         pytest.fail("active-change not found")
 
@@ -78,4 +84,4 @@ class TestWorkspaceReaderIntegration:
         root = Path("tests/fixtures/workspace/minimal/openspec").resolve()
         snap = reader.read_workspace(root)
         for c in snap.archived_changes:
-            assert c.state == ChangeState.ARCHIVED
+            assert c.state == ChangeStatus.ARCHIVED

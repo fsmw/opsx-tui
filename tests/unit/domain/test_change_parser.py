@@ -4,19 +4,16 @@ import pytest
 from pydantic import ValidationError
 
 from opsx_tui.domain.change_parser import (
-    ChangeState,
     ParsedDesign,
     ParsedDesignDecision,
     ParsedDesignSection,
     ParsedProposal,
     ParsedTaskItem,
     ParsedTaskList,
-    infer_change_state,
     parse_design_markdown,
     parse_proposal_markdown,
     parse_task_markdown,
 )
-from opsx_tui.domain.project import Diagnostic, DiagnosticLevel
 
 
 class TestParsedProposalModel:
@@ -192,40 +189,3 @@ class TestParseTaskMarkdown:
         text = "## S1\n\n- [ ] Task A\n- [x] Task B\n-[ ] no space\n* [ ] asterisk"
         result = parse_task_markdown(text)
         assert result.total == 2  # only - [ ] and - [x] with space match
-
-
-class TestInferChangeState:
-    def test_archived(self) -> None:
-        assert infer_change_state(
-            is_archived=True, has_artifacts={"proposal": True}, artifact_diagnostics=[],
-        ) == ChangeState.ARCHIVED
-
-    def test_unknown_when_no_artifacts(self) -> None:
-        assert infer_change_state(
-            is_archived=False,
-            has_artifacts={"proposal": False, "design": False, "tasks": False},
-            artifact_diagnostics=[],
-        ) == ChangeState.UNKNOWN
-
-    def test_incomplete_when_missing_artifacts(self) -> None:
-        assert infer_change_state(
-            is_archived=False,
-            has_artifacts={"proposal": True, "design": False, "tasks": False},
-            artifact_diagnostics=[],
-        ) == ChangeState.INCOMPLETE
-
-    def test_partially_valid_with_warnings(self) -> None:
-        diags = [Diagnostic(level=DiagnosticLevel.WARNING, message="missing section")]
-        assert infer_change_state(
-            is_archived=False,
-            has_artifacts={"proposal": True, "design": True, "tasks": True},
-            artifact_diagnostics=diags,
-        ) == ChangeState.PARTIALLY_VALID
-
-    def test_active_with_all_good(self) -> None:
-        diags = [Diagnostic(level=DiagnosticLevel.INFO, message="empty")]
-        assert infer_change_state(
-            is_archived=False,
-            has_artifacts={"proposal": True, "design": True, "tasks": True},
-            artifact_diagnostics=diags,
-        ) == ChangeState.ACTIVE
